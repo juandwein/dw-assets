@@ -1,0 +1,24 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>DW Depósito</title>
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<meta name="theme-color" content="#FFC20E">
+<style>
+html,body{margin:0;height:100%;background:#F4F4F2;overflow:hidden}
+iframe{border:0;width:100%;height:100%;display:block}
+</style>
+</head>
+<body>
+<iframe id="app" allow="camera; fullscreen; clipboard-write" title="DW Depósito"></iframe>
+<script>
+/* Pegá entre las comillas el link de la app web de Apps Script (el que termina en /exec). */
+const GAS_URL = 'https://script.google.com/a/macros/dw.com.ar/s/AKfycbzJwNo5NmYxJl7Mmd6ZKOhOcWqj-84hF3lKA-tkmJEnReuMkqdwT9bHBP3RveW_VUmY/exec';
+document.getElementById('app').src = GAS_URL + (GAS_URL.indexOf('?') < 0 ? '?' : '&') + 'modo=pwa';
+if ('serviceWorker' in navigator) navigator.serviceWorker.register('sw.js').catch(() => {});
+</script>
+</body>
+</html>
