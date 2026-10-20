@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+<title>DW Depósito · Escanear</title>
+<link href="https://fonts.googleapis.com/css2?family=Quicksand:wght@500;700&display=swap" rel="stylesheet">
+<style>
+*{box-sizing:border-box}
+html,body{margin:0;height:100%;background:#111;color:#fff;font-family:'Quicksand',system-ui,sans-serif}
+#cam{position:fixed;inset:0}
+video{width:100%;height:100%;object-fit:cover}
+#marco{position:absolute;left:15%;right:15%;top:28%;aspect-ratio:1;border:3px solid #FFC20E;border-radius:16px;box-shadow:0 0 0 999px rgba(0,0,0,.4)}
+#bar{position:fixed;left:0;right:0;bottom:0;padding:16px;display:flex;flex-direction:column;gap:10px;background:linear-gradient(transparent,rgba(0,0,0,.8))}
+#msg{text-align:center;font-weight:700}
+.row{display:flex;gap:10px}
+button{flex:1;border:none;border-radius:12px;padding:14px;font-family:inherit;font-weight:700;font-size:15px;background:#FFC20E;color:#2C2C2A}
+button.alt{background:#fff}
+#res{display:none;position:fixed;inset:0;background:#F4F4F2;color:#2C2C2A;padding:24px;flex-direction:column;gap:14px;justify-content:center;text-align:center}
+#code{font-size:26px;font-weight:700;word-break:break-all}
+</style>
+</head>
+<body>
+<div id="cam"><video id="vid" playsinline muted autoplay></video><div id="marco"></div></div>
+<div id="bar"><div id="msg">Abriendo la cámara…</div>
+  <div class="row"><button class="alt" id="bT" style="display:none" onclick="torch()">Linterna</button><button onclick="window.close()">Cerrar</button></div></div>
+<div id="res"><div>Código leído</div><div id="code"></div>
+  <button onclick="copiar()">Copiar</button><button class="alt" onclick="location.reload()">Escanear otro</button></div>
+<script src="https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js"></script>
+<script>
+let stream = null, det = null, cv = null, luz = false;
+const msg = t => { document.getElementById('msg').textContent = t; };
+async function iniciar() {
+  try {
+    stream = await navigator.mediaDevices.getUserMedia({ audio: false, video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 720 } } });
+  } catch (e) { return msg('No se pudo abrir la cámara (' + e.name + '). Revisá los permisos del navegador.'); }
+  const v = document.getElementById('vid'); v.srcObject = stream;
+  try { await v.play(); } catch (e) {}
+  msg('Apuntá al código dentro del recuadro.');
+  try { const caps = stream.getVideoTracks()[0].getCapabilities(); if (caps.torch) document.getElementById('bT').style.display = ''; } catch (e) {}
+  if ('BarcodeDetector' in window) {
+    try { const f = await BarcodeDetector.getSupportedFormats(); if (f.indexOf('qr_code') >= 0) det = new BarcodeDetector({ formats: f.filter(x => ['qr_code', 'code_128', 'code_39', 'ean_13', 'ean_8', 'itf'].indexOf(x) >= 0) }); } catch (e) { det = null; }
+  }
+  bucle();
+}
+async function bucle() {
+  const v = document.getElementById('vid');
+  if (v.readyState >= 2 && v.videoWidth) {
+    try {
+      if (det) { const r = await det.detect(v); if (r && r.length) return listo(r[0].rawValue); }
+      else if (window.jsQR) {
+        const sc = Math.min(1, 720 / Math.max(v.videoWidth, v.videoHeight)); cv = cv || document.createElement('canvas');
+        cv.width = Math.round(v.videoWidth * sc); cv.height = Math.round(v.videoHeight * sc);
+        const ctx = cv.getContext('2d', { willReadFrequently: true }); ctx.drawImage(v, 0, 0, cv.width, cv.height);
+        const r = jsQR(ctx.getImageData(0, 0, cv.width, cv.height).data, cv.width, cv.height, { inversionAttempts: 'attemptBoth' });
+        if (r && r.data) return listo(r.data);
+      }
+    } catch (e) { det = null; }
+  }
+  setTimeout(bucle, 140);
+}
+function listo(t) {
+  t = String(t).trim();
+  try { navigator.vibrate && navigator.vibrate(80); } catch (e) {}
+  if (stream) stream.getTracks().forEach(x => x.stop());
+  if (window.opener) {
+    try { window.opener.postMessage({ dwScan: t }, '*'); window.close(); return; } catch (e) {}
+  }
+  document.getElementById('code').textContent = t;
+  document.getElementById('res').style.display = 'flex';
+}
+async function torch() { try { luz = !luz; await stream.getVideoTracks()[0].applyConstraints({ advanced: [{ torch: luz }] }); } catch (e) {} }
+function copiar() { const t = document.getElementById('code').textContent; navigator.clipboard && navigator.clipboard.writeText(t); }
+iniciar();
+</script>
+</body>
+</html>
